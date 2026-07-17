@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- INTERNET -->
+
+    <uses-permission
+        android:name="android.permission.INTERNET" />
+
+    <!-- LOCATION -->
+
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE"/>
+
+    <uses-permission
+        android:name="android.permission.WAKE_LOCK"/>
+
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+
+    <!-- NOTIFICATION -->
+
+    <uses-permission
+        android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="VeggieGo Rider"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"
+        android:usesCleartextTraffic="true">
+
+        <!-- GOOGLE MAP API -->
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyB7-In-M9L3o9BdUxAMcQiad7VfMj74gCI" />
+
+        <!-- FIREBASE NOTIFICATION -->
+        <service
+            android:name=".MyFirebaseService"
+            android:exported="false">
+
+            <intent-filter>
+
+                <action
+                    android:name=
+                        "com.google.firebase.MESSAGING_EVENT" />
+
+            </intent-filter>
+
+        </service>
+
+        <!-- MAIN ACTIVITY -->
+        <activity
+            android:name=".RiderChatActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".NewOrderPopupActivity"
+            android:exported="false"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"/>
+
+        <activity
+            android:name=".MainActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+
+            <intent-filter>
+
+                <action
+                    android:name=
+                        "android.intent.action.MAIN" />
+
+                <category
+                    android:name=
+                        "android.intent.category.LAUNCHER" />
+
+            </intent-filter>
+
+        </activity>
+        <service
+            android:name=".RiderLocationService"
+            android:foregroundServiceType="location"/>
+    </application>
+
+</manifest>
