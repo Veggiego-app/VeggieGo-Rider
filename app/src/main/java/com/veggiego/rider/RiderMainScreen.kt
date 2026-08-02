@@ -19,10 +19,6 @@ fun RiderMainScreen() {
 
     val navController = rememberNavController()
 
-    LaunchedEffect(Unit) {
-        navController.navigate("home")
-    }
-
     val currentRoute =
         navController
             .currentBackStackEntryAsState()
@@ -59,19 +55,21 @@ fun RiderMainScreen() {
                 }
 
                 BottomItem(
-                    title = "📦 Orders",
-                    selected =
-                        currentRoute == "orders"
-                ) {
-                    navController.navigate("orders")
-                }
-
-                BottomItem(
-                    title = "📜 History",
+                    title = "📋 History",
                     selected =
                         currentRoute == "history"
                 ) {
-                    navController.navigate("history")
+                    navController.navigate("history") {
+                        launchSingleTop = true
+                    }
+                }
+
+                BottomItem(
+                    title = "💰 Earnings",
+                    selected =
+                        currentRoute == "earnings"
+                ) {
+                    navController.navigate("earnings")
                 }
 
                 BottomItem(
@@ -103,12 +101,14 @@ fun RiderMainScreen() {
                 HomeScreen()
             }
 
-            composable("orders") {
-                NewOrderScreen()
+            composable("history") {
+                HistoryScreen(
+                    onBack = { navController.navigate("home") }
+                )
             }
 
-            composable("history") {
-                HistoryScreen()
+            composable("earnings") {
+                RiderEarningsScreen()
             }
 
             composable("profile") {

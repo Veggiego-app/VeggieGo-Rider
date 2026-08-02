@@ -24,5 +24,8 @@
       ],
       "source": "veggiego"
     }
-  ]
+  ],
+  "firestore": {
+    "indexes": "firestore.indexes.json"
+  }
 }

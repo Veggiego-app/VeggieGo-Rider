@@ -33,6 +33,12 @@
     <uses-permission
         android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <uses-permission
+        android:name="android.permission.VIBRATE" />
+
+    <uses-permission
+        android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -72,8 +78,10 @@
         <activity
             android:name=".NewOrderPopupActivity"
             android:exported="false"
-            android:showOnLockScreen="true"
-            android:turnScreenOn="true"/>
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"/>
 
         <activity
             android:name=".MainActivity"

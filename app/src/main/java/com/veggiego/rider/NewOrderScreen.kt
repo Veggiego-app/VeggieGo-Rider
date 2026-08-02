@@ -36,11 +36,9 @@ fun NewOrderScreen() {
                 )
 
                 Text(
-                    text = "READY_FOR_PICKUP orders"
+                    text = "Nearby requests appear one at a time as an Accept / Reject popup. After accepting, manage the delivery from Home."
                 )
             }
         }
-
-        RiderScreen()
     }
 }

@@ -1,369 +1,177 @@
 package com.veggiego.rider
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-data class HistoryOrder(
-
-    val orderId: String = "",
-
-    val restaurantName: String = "",
-
-    val customerName: String = "",
-
-    val area: String = "",
-
-    val city: String = "",
-
-    val riderEarning: Int = 0,
-
-    val timestamp: Long = 0L
+data class DeliveryHistoryItem(
+    val id: String,
+    val restaurantName: String,
+    val area: String,
+    val deliveredAt: Long,
+    val distanceKm: Double,
+    val riderPay: Int,
+    val paymentMethod: String,
+    val codCollected: Int,
+    val settlementStatus: String
 )
 
 @Composable
-fun HistoryScreen() {
+fun HistoryScreen(onBack: () -> Unit = {}) {
+    val riderId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+    val db = FirebaseFirestore.getInstance()
+    var orders by remember { mutableStateOf<List<DeliveryHistoryItem>>(emptyList()) }
+    var lastDocument by remember { mutableStateOf<DocumentSnapshot?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    var hasMore by remember { mutableStateOf(true) }
+    var queryText by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf("All") }
 
-    val riderId =
-        FirebaseAuth
-            .getInstance()
-            .currentUser
-            ?.uid ?: ""
-
-    val db =
-        FirebaseFirestore.getInstance()
-
-    var orders by remember {
-        mutableStateOf(
-            listOf<HistoryOrder>()
-        )
-    }
-
-    var totalEarnings by remember {
-        mutableStateOf(0)
-    }
-    var expandedWeek by remember {
-        mutableStateOf("")
-    }
-
-    LaunchedEffect(Unit) {
-
-        db.collection("orders")
-            .whereEqualTo(
-                "riderId",
-                riderId
-            )
-
-            .whereEqualTo(
-                "deliveryStatus",
-                "DELIVERED"
-            )
-
-            .addSnapshotListener { value, _ ->
-
-                if (value != null) {
-
-                    totalEarnings = 0
-
-                    orders =
-
-                        value.documents
-
-                            .sortedByDescending {
-
-                                it.getLong("timestamp")
-                                    ?: 0L
-                            }
-
-                            .map {
-
-                                val earning =
-                                    it.getLong("riderPay")
-                                        ?.toInt()
-                                        ?: 0
-
-                            totalEarnings += earning
-
-                            HistoryOrder(
-
-                                orderId =
-                                    it.getString("orderId")
-                                        ?: it.id,
-
-                                restaurantName =
-                                    it.getString("restaurantName")
-                                        ?: "",
-
-                                customerName =
-                                    it.getString("customerName")
-                                        ?: "",
-
-                                area =
-                                    it.getString("area")
-                                        ?: "",
-
-                                city =
-                                    it.getString("city")
-                                        ?: "",
-
-                                riderEarning =
-                                    it.getLong("riderPay")
-                                        ?.toInt()
-                                        ?: 0,
-
-                                timestamp =
-                                    it.getLong("timestamp")
-                                        ?: 0L
-                            )
-                        }
+    fun loadNextPage(reset: Boolean = false) {
+        if (loading || (!hasMore && !reset) || riderId.isBlank()) return
+        if (reset) {
+            orders = emptyList()
+            lastDocument = null
+            hasMore = true
+        }
+        loading = true
+        var query: Query = db.collection("orders")
+            .whereEqualTo("riderId", riderId)
+            .whereEqualTo("deliveryStatus", "DELIVERED")
+            .orderBy("deliveredAt", Query.Direction.DESCENDING)
+            .limit(20)
+        lastDocument?.let { query = query.startAfter(it) }
+        query.get().addOnSuccessListener { snap ->
+            val page = snap.documents.map { doc ->
+                val rawDate = doc.get("deliveredAt")
+                val delivered = when (rawDate) {
+                    is Timestamp -> rawDate.toDate().time
+                    is Number -> rawDate.toLong()
+                    else -> doc.getLong("timestamp") ?: 0L
                 }
+                DeliveryHistoryItem(
+                    id = doc.getString("orderId") ?: doc.id,
+                    restaurantName = doc.getString("restaurantName") ?: "Restaurant",
+                    area = doc.getString("area") ?: doc.getString("city") ?: "-",
+                    deliveredAt = delivered,
+                    distanceKm = (doc.get("deliveryDistance") as? Number)?.toDouble()
+                        ?: (doc.get("distanceKm") as? Number)?.toDouble() ?: 0.0,
+                    riderPay = (doc.get("riderPay") as? Number)?.toInt() ?: 0,
+                    paymentMethod = doc.getString("paymentMethod") ?: "COD",
+                    codCollected = if (doc.getBoolean("cashCollected") == true)
+                        (doc.get("total") as? Number)?.toInt() ?: 0 else 0,
+                    settlementStatus = doc.getString("riderSettlementStatus") ?: "UNSETTLED"
+                )
             }
+            orders = (orders + page).distinctBy { it.id }
+            lastDocument = snap.documents.lastOrNull()
+            hasMore = snap.size() == 20
+            loading = false
+        }.addOnFailureListener {
+            loading = false
+            hasMore = false
+        }
     }
 
-    Column(
+    LaunchedEffect(riderId) { loadNextPage(reset = true) }
 
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+    val now = System.currentTimeMillis()
+    val cutoff = when (filter) {
+        "Week" -> now - 7L * 24 * 60 * 60 * 1000
+        "Month" -> now - 31L * 24 * 60 * 60 * 1000
+        else -> 0L
+    }
+    val visible = orders.filter {
+        it.deliveredAt >= cutoff &&
+                (queryText.isBlank() || it.id.contains(queryText, true) ||
+                        it.restaurantName.contains(queryText, true))
+    }
 
-    ) {
-
-        Text(
-
-            text =
-                "📜 Delivery History",
-
-            fontSize = 26.sp,
-
-            fontWeight =
-                FontWeight.Bold
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = onBack) { Text("Back") }
+            Text("Order History", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+        OutlinedTextField(
+            value = queryText,
+            onValueChange = { queryText = it },
+            label = { Text("Search order ID or restaurant") },
+            modifier = Modifier.fillMaxWidth()
         )
-
-        Spacer(
-            modifier =
-                Modifier.height(16.dp)
-        )
-
-        Card(
-
-            modifier =
-                Modifier.fillMaxWidth()
-
-        ) {
-
-            Column(
-
-                modifier =
-                    Modifier.padding(16.dp)
-
-            ) {
-
-                Text(
-                    "💰 Total Earnings"
-                )
-
-                Text(
-
-                    text =
-                        "₹$totalEarnings",
-
-                    fontSize = 24.sp,
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
-
-                Text(
-                    "📦 Deliveries : ${orders.size}"
-                )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("All", "Week", "Month").forEach { label ->
+                AssistChip(onClick = { filter = label }, label = { Text(label) })
             }
         }
+        Text("${visible.size} loaded deliveries • Earnings ₹${visible.sumOf { it.riderPay }}")
 
-        Spacer(
-            modifier =
-                Modifier.height(16.dp)
-        )
-        val currentWeekOrders = orders.take(50)
-
-        val currentWeekEarnings =
-            currentWeekOrders.sumOf {
-                it.riderEarning
-            }
-
-        LazyColumn {
-
-            item {
-
-                Card(
-
-                    modifier =
-                        Modifier.fillMaxWidth()
-
-                ) {
-
-                    Column(
-
-                        modifier =
-                            Modifier.padding(16.dp)
-
-                    ) {
-
-                        Button(
-
-                            onClick = {
-
-                                expandedWeek =
-
-                                    if (
-                                        expandedWeek ==
-                                        "CURRENT"
-                                    )
-
-                                        ""
-
-                                    else
-
-                                        "CURRENT"
-                            },
-
-                            modifier =
-                                Modifier.fillMaxWidth()
-
-                        ) {
-
-                            Text(
-                                "📅 Current Week"
-                            )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            itemsIndexed(visible, key = { _, item -> item.id }) { index, order ->
+                LaunchedEffect(index, hasMore, loading) {
+                    if (index >= visible.lastIndex - 3 && hasMore && !loading) loadNextPage()
+                }
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("#${order.id}", fontWeight = FontWeight.Bold)
+                            Text("DELIVERED")
                         }
-                        Spacer(
-                            modifier =
-                                Modifier.height(8.dp)
-                        )
-
+                        Text(order.restaurantName, fontWeight = FontWeight.Bold)
+                        Text(order.area)
+                        Text("${formatHistoryDate(order.deliveredAt)} • ${"%.1f".format(order.distanceKm)} km")
+                        Text("Earning ₹${order.riderPay}", fontWeight = FontWeight.Bold)
                         Text(
-                            "💰 Total Earnings ₹$currentWeekEarnings"
-                        )
-
-                        Text(
-                            "📦 Total Deliveries ${currentWeekOrders.size}"
-                        )
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(8.dp)
-                        )
-
-                        Text(
-
-                            if (
-                                expandedWeek ==
-                                "CURRENT"
-                            )
-
-                                "🔼 Hide Orders"
-
-                            else
-
-                                "🔽 Show Orders"
+                            if (order.paymentMethod.equals("COD", true))
+                                "COD ₹${order.codCollected} collected • ${order.settlementStatus}"
+                            else "Online Paid • ${order.settlementStatus}"
                         )
                     }
                 }
             }
-
-            if (expandedWeek == "CURRENT") {
-
-                items(currentWeekOrders) { order ->
-
-                    Card(
-
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    vertical = 4.dp
-                                )
-
-                    ) {
-
-                        Column(
-
-                            modifier =
-                                Modifier.padding(16.dp)
-
-                        ) {
-
-                            val dateText =
-
-                                SimpleDateFormat(
-
-                                    "dd MMM yyyy • hh:mm a",
-
-                                    Locale.getDefault()
-
-                                ).format(
-
-                                    Date(
-                                        order.timestamp
-                                    )
-                                )
-
-                            Text(
-                                "🆔 ${order.orderId}",
-                                fontWeight =
-                                    FontWeight.Bold
-                            )
-
-                            Spacer(
-                                modifier =
-                                    Modifier.height(4.dp)
-                            )
-
-                            Text(
-                                "🕒 $dateText"
-                            )
-
-                            Spacer(
-                                modifier =
-                                    Modifier.height(4.dp)
-                            )
-
-                            Text(
-                                "🍔 ${order.restaurantName}"
-                            )
-
-                            Text(
-                                "👤 ${order.customerName}"
-                            )
-
-                            Text(
-                                "📍 ${order.area}, ${order.city}"
-                            )
-
-                            Text(
-                                "💰 Rider Earning ₹${order.riderEarning}"
-                            )
-                        }
-                    }
+            if (loading) {
+                item {
+                    Text(
+                        "Loading deliveries…",
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
+            if (!hasMore && orders.isNotEmpty()) item { Text("No more deliveries", Modifier.padding(16.dp)) }
+            if (!loading && orders.isEmpty()) item { Text("No deliveries found", Modifier.padding(16.dp)) }
         }
     }
 }
+
+private fun formatHistoryDate(value: Long): String =
+    SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(value))

@@ -547,12 +547,16 @@ fun HomeScreen() {
 
                 pendingOrders =
 
-                    mappedOrders
+                    if (!isOnline || activeOrders.isNotEmpty()) {
+                        emptyList()
+                    } else mappedOrders
                         .filter { order ->
 
                             order.riderRequestStatus ==
                                     "PENDING"
                         }
+                        .sortedBy { it.orderId }
+                        .take(1)
             }
 
         // =====================================================
@@ -990,14 +994,27 @@ fun HomeScreen() {
                             return@Button
                         }
 
+                        val nextOnline = !isOnline
+
                         db.collection("riders")
                             .document(riderId)
                             .update(
-
-                                "online",
-
-                                !isOnline
+                                mapOf(
+                                    "online" to nextOnline,
+                                    "availableForOrders" to
+                                        (nextOnline && activeOrders.isEmpty())
+                                )
                             )
+                            .addOnSuccessListener {
+                                val activity = context as? MainActivity
+                                if (nextOnline) {
+                                    activity?.startRiderLocationService()
+                                } else {
+                                    pendingOrders = emptyList()
+                                    riderChangeRequests = emptyList()
+                                    activity?.stopRiderLocationService()
+                                }
+                            }
                     }
 
                 ) {
@@ -1145,7 +1162,7 @@ fun HomeScreen() {
 // =====================================================
 
         if (
-            riderChangeRequests.isNotEmpty()
+            false && riderChangeRequests.isNotEmpty()
         ) {
 
             Card(
@@ -1572,7 +1589,7 @@ fun HomeScreen() {
             )
         }
         if (
-            pendingOrders.isNotEmpty()
+            false && pendingOrders.isNotEmpty()
         ) {
 
             Card(

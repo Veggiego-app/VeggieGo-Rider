@@ -284,13 +284,29 @@ fun ProfileScreen() {
                 Button(
 
                     onClick = {
+                        val auth = FirebaseAuth.getInstance()
+                        val uid = auth.currentUser?.uid
+                        val activity = context as MainActivity
+                        activity.stopRiderLocationService()
 
-                        FirebaseAuth
-                            .getInstance()
-                            .signOut()
-
-                        (context as MainActivity)
-                            .recreate()
+                        if (uid == null) {
+                            auth.signOut()
+                            activity.recreate()
+                        } else {
+                            FirebaseFirestore.getInstance()
+                                .collection("riders")
+                                .document(uid)
+                                .update(
+                                    mapOf(
+                                        "online" to false,
+                                        "availableForOrders" to false
+                                    )
+                                )
+                                .addOnCompleteListener {
+                                    auth.signOut()
+                                    activity.recreate()
+                                }
+                        }
                     },
 
                     modifier =
