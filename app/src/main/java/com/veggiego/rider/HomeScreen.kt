@@ -1927,14 +1927,30 @@ fun HomeScreen() {
 
                 ) {
 
-                    Text(
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
 
-                        text =
-                            "🚴 LIVE ORDERS (${if (activeOrderId.isNotEmpty()) 1 else 0})",
+                        Text(
+                            text = "🚴 LIVE ORDERS (${if (activeOrderId.isNotEmpty()) 1 else 0})",
+                            fontWeight = FontWeight.Bold
+                        )
 
-                        fontWeight =
-                            FontWeight.Bold
-                    )
+                        Text(
+                            text = when (activeStatus) {
+                                "PREPARING" -> "🟠 Preparing"
+                                "READY_FOR_PICKUP" -> "🟢 Ready for Pickup"
+                                else -> ""
+                            },
+                            color = when (activeStatus) {
+                                "PREPARING" -> Color(0xFFF57C00)
+                                "READY_FOR_PICKUP" -> Color(0xFF2E7D32)
+                                else -> Color.Gray
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
                     Spacer(
                         modifier =
@@ -2571,11 +2587,31 @@ fun HomeScreen() {
                             Arrangement.SpaceBetween
                     ) {
 
-                        Text(
-                            text = "📦 ADDITIONAL ORDER",
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1565C0)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+
+                            Text(
+                                text = "📦 ADDITIONAL ORDER",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1565C0)
+                            )
+
+                            Text(
+                                text = when (secondOrder.status) {
+                                    "PREPARING" -> "🟠 Preparing"
+                                    "READY_FOR_PICKUP" -> "🟢 Ready for Pickup"
+                                    else -> ""
+                                },
+                                color = when (secondOrder.status) {
+                                    "PREPARING" -> Color(0xFFF57C00)
+                                    "READY_FOR_PICKUP" -> Color(0xFF2E7D32)
+                                    else -> Color.Gray
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
 
                         Text(
                             text = "2 of 2",
